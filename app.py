@@ -1,7 +1,7 @@
 from potassium import Potassium, Request, Response
 
 from transformers import pipeline
-from utils import download_payload_from_gcs
+import utils
 import torch
 
 app = Potassium("my_app")
@@ -24,9 +24,11 @@ def handler(context: dict, request: Request) -> Response:
     payload_file = request.json.get("payload_file")
     model = context.get("model")
 
-    prompt = download_payload_from_gcs(payload_file)
+    prompt = utils.download_payload_from_gcs(payload_file)
     print(prompt)
     outputs = model(prompt)
+    utils.upload_content_to_gcs(outputs[0]['sequence'])
+
 
     return Response(
         json = {"outputs": outputs[0]}, 

@@ -42,3 +42,27 @@ def download_payload_from_gcs(file_name='example.txt'):
     # blob.download_to_filename(local_path)
 
     return text_content
+
+def upload_content_to_gcs(content):
+    import os
+    from google.cloud import storage
+
+    bucket_name = "example-remote-bucket"
+    folder_name = "outputs"
+
+
+    # Initialize the Google Cloud Storage client
+    client = storage.Client()
+
+    # Get a reference to the bucket
+    bucket = client.get_bucket(bucket_name)
+
+    # Construct the destination path within the bucket
+    destination_blob_name = os.path.join(folder_name, 'output.txt')  # Change 'output.txt' as needed
+
+    # Upload the content to the specified GCS location
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_string(content)
+
+    print(f"Content uploaded to: gs://{bucket_name}/{destination_blob_name}")
+
