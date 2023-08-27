@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env file
 def download_payload_from_gcs(file_name='example.txt'):
     import os
     from google.cloud import storage
@@ -43,13 +45,40 @@ def download_payload_from_gcs(file_name='example.txt'):
 
     return text_content
 
+def download_payload_from_s3(file_name='example.txt'):
+    import os
+    import boto3
+
+    # Set your AWS credentials as environment variables
+    aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
+    aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+    print(aws_access_key_id, aws_secret_access_key)
+    bucket_name = 'model-payloads'
+    folder_name = 'inputs'  # Folder within the bucket
+
+    # Initialize the S3 client
+    s3 = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+
+
+    # print all folders in model-payloads bucket
+    response = s3.list_objects_v2(Bucket=bucket_name, Prefix=folder_name)
+    print(response)
+    # Construct the source key within the bucket
+    source_key = os.path.join(folder_name, file_name)
+    print(source_key)
+
+    # Download the content from the specified S3 location
+    response = s3.get_object(Bucket=bucket_name, Key=source_key)
+    content = response['Body'].read().decode('utf-8')
+
+    return content
+
 def upload_content_to_gcs(content):
     import os
     from google.cloud import storage
 
     bucket_name = "example-remote-bucket"
     folder_name = "outputs"
-
 
     # Initialize the Google Cloud Storage client
     client = storage.Client()
@@ -65,4 +94,25 @@ def upload_content_to_gcs(content):
     blob.upload_from_string(content)
 
     print(f"Content uploaded to: gs://{bucket_name}/{destination_blob_name}")
+
+def upload_content_to_s3(content):
+    import os
+    import boto3
+
+    # Set your AWS credentials as environment variables
+    aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
+    aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+    bucket_name = 'model-payloads'
+    folder_name = '/outputs'  # Folder within the bucket
+
+    # Initialize the S3 client
+    s3 = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+
+    # Construct the destination key within the bucket
+    destination_key = os.path.join(folder_name, 'output.txt')  # Change 'output.txt' as needed
+
+    # Upload the content to the specified S3 location
+    s3.put_object(Body=content, Bucket=bucket_name, Key=destination_key)
+
+    print(f"Content uploaded to: s3://{bucket_name}/{destination_key}")
 
