@@ -76,6 +76,8 @@ def download_payload_from_s3(file_name='example.txt'):
 def upload_content_to_gcs(content):
     import os
     from google.cloud import storage
+    import string
+    import random
 
     bucket_name = "example-remote-bucket"
     folder_name = "outputs"
@@ -87,13 +89,16 @@ def upload_content_to_gcs(content):
     bucket = client.get_bucket(bucket_name)
 
     # Construct the destination path within the bucket
-    destination_blob_name = os.path.join(folder_name, 'output.txt')  # Change 'output.txt' as needed
+    rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    destination_key = os.path.join(folder_name, "output_" + rand_suffix + ".txt")
 
     # Upload the content to the specified GCS location
-    blob = bucket.blob(destination_blob_name)
+    blob = bucket.blob(destination_key)
     blob.upload_from_string(content)
 
-    print(f"Content uploaded to: gs://{bucket_name}/{destination_blob_name}")
+    print(f"Content uploaded to: gs://{bucket_name}/{destination_key}")
+    output_path = bucket_name + destination_key
+    return output_path
 
 def upload_content_to_s3(content):
     from dotenv import load_dotenv
@@ -101,21 +106,25 @@ def upload_content_to_s3(content):
     
     import os
     import boto3
+    import string
+    import random
 
     # Set your AWS credentials as environment variables
     aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
     bucket_name = 'model-payloads'
-    folder_name = '/outputs'  # Folder within the bucket
+    folder_name = 'outputs'  # Folder within the bucket
 
     # Initialize the S3 client
     s3 = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
     # Construct the destination key within the bucket
-    destination_key = os.path.join(folder_name, 'output.txt')  # Change 'output.txt' as needed
+    rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    destination_key = os.path.join(folder_name, "output_" + rand_suffix + ".txt")
 
     # Upload the content to the specified S3 location
     s3.put_object(Body=content, Bucket=bucket_name, Key=destination_key)
 
     print(f"Content uploaded to: s3://{bucket_name}/{destination_key}")
-
+    output_path = bucket_name + destination_key
+    return output_path

@@ -24,13 +24,15 @@ def handler(context: dict, request: Request) -> Response:
     payload_file = request.json.get("payload_file")
     model = context.get("model")
 
-    prompt = utils.download_payload_from_s3(payload_file)
+    # It's assumed the client uploaded the large payload to some third party storage, and we can fetch it by file name
+    prompt = utils.download_payload_from_gcs(payload_file)
     outputs = model(prompt)
-    utils.upload_content_to_s3(outputs[0]['sequence'])
 
+    # If the output is large as well, we'll upload the result to third-party storage, the client can then download it
+    path = utils.upload_content_to_gcs(outputs[0]['sequence'])
 
     return Response(
-        json = {"outputs": outputs[0]}, 
+        json = {"output_path": path}, 
         status=200
     )
 
