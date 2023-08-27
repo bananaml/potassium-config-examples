@@ -1,9 +1,14 @@
+"""
+    This file contains utility functions for common pre/post-processing required to use Banana
+    You can copy any of these functions directly & standalone. Assuming you've setup your environment correctly, they should work
+    See https://docs.banana.dev/banana-docs/core-concepts/potassium-your-models-server/configuring-potassium for more details on how to use these functions
+"""
 def download_payload_from_gcs(file_name='example.txt'):
     import os
     from google.cloud import storage
 
     """
-        If you need to create application credentials for accessing google cloud strorage, read https://developers.google.com/workspace/guides/create-credentials
+        If you need to create application credentials for accessing google cloud storage, read https://developers.google.com/workspace/guides/create-credentials
         tl;dr
         Go to the Google Cloud Console (https://console.cloud.google.com/).
         Create a new project or use an existing one.
@@ -34,16 +39,22 @@ def download_payload_from_gcs(file_name='example.txt'):
     # Get a blob reference to the image file
     blob = bucket.blob(remote_path)
 
-    # Download the text and save in text_content
-    text_content = blob.download_as_text()
+    # Download the text and save in payload
+    payload = blob.download_as_text()
 
     # alternatively you could download any file type to machine or variable, and then convert it into the .wav etc you need
     # local_path = os.path.join(os.getcwd(), file_name)
     # blob.download_to_filename(local_path)
 
-    return text_content
+    return payload
 
 def download_payload_from_s3(file_name='example.txt'):
+    # This assumes you've setup an AWS S3 bucket and have the credentials stored in the same directory as this code in a .env file
+    # required contents of .env file:
+    # AWS_ACCESS_KEY_ID=...
+    # AWS_SECRET_ACCESS_KEY=...
+    # AWS_REGION=...
+
     from dotenv import load_dotenv
     load_dotenv()  # Load environment variables from .env file
     import os
@@ -52,28 +63,37 @@ def download_payload_from_s3(file_name='example.txt'):
     # Set your AWS credentials as environment variables
     aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
     aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    print(aws_access_key_id, aws_secret_access_key)
+
     bucket_name = 'model-payloads'
     folder_name = 'inputs'  # Folder within the bucket
 
     # Initialize the S3 client
     s3 = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
-
     # print all folders in model-payloads bucket
     response = s3.list_objects_v2(Bucket=bucket_name, Prefix=folder_name)
-    print(response)
+
     # Construct the source key within the bucket
     source_key = os.path.join(folder_name, file_name)
-    print(source_key)
 
     # Download the content from the specified S3 location
     response = s3.get_object(Bucket=bucket_name, Key=source_key)
-    content = response['Body'].read().decode('utf-8')
+    payload = response['Body'].read().decode('utf-8')
 
-    return content
+    return payload
 
-def upload_content_to_gcs(content):
+def upload_payload_to_gcs(content):
+    """
+        If you need to create application credentials for accessing google cloud storage, read https://developers.google.com/workspace/guides/create-credentials
+        tl;dr
+        Go to the Google Cloud Console (https://console.cloud.google.com/).
+        Create a new project or use an existing one.
+        In the left navigation pane, go to "IAM & Admin" > "Service accounts".
+        Create a new service account or use an existing one.
+        Generate a new key for the service account in JSON format.
+        Save the downloaded JSON key file to a secure location on your system
+    """
+
     import os
     from google.cloud import storage
     import string
@@ -96,11 +116,16 @@ def upload_content_to_gcs(content):
     blob = bucket.blob(destination_key)
     blob.upload_from_string(content)
 
-    print(f"Content uploaded to: gs://{bucket_name}/{destination_key}")
-    output_path = bucket_name + destination_key
+    output_path = bucket_name + "/ " + destination_key
     return output_path
 
-def upload_content_to_s3(content):
+def upload_payload_to_s3(payload):
+    # This assumes you've setup an AWS S3 bucket and have the credentials stored in the same directory as this code in a .env file
+    # required contents of .env file:
+    # AWS_ACCESS_KEY_ID=...
+    # AWS_SECRET_ACCESS_KEY=...
+    # AWS_REGION=...
+
     from dotenv import load_dotenv
     load_dotenv()  # Load environment variables from .env file
     
@@ -122,9 +147,8 @@ def upload_content_to_s3(content):
     rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
     destination_key = os.path.join(folder_name, "output_" + rand_suffix + ".txt")
 
-    # Upload the content to the specified S3 location
-    s3.put_object(Body=content, Bucket=bucket_name, Key=destination_key)
+    # Upload the payload to the specified S3 location
+    s3.put_object(Body=payload, Bucket=bucket_name, Key=destination_key)
 
-    print(f"Content uploaded to: s3://{bucket_name}/{destination_key}")
-    output_path = bucket_name + destination_key
+    output_path = bucket_name + "/" + destination_key
     return output_path
