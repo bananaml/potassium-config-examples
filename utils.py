@@ -1,5 +1,3 @@
-from dotenv import load_dotenv
-load_dotenv()  # Load environment variables from .env file
 def download_payload_from_gcs(file_name='example.txt'):
     import os
     from google.cloud import storage
@@ -46,6 +44,8 @@ def download_payload_from_gcs(file_name='example.txt'):
     return text_content
 
 def download_payload_from_s3(file_name='example.txt'):
+    from dotenv import load_dotenv
+    load_dotenv()  # Load environment variables from .env file
     import os
     import boto3
 
@@ -96,6 +96,9 @@ def upload_content_to_gcs(content):
     print(f"Content uploaded to: gs://{bucket_name}/{destination_blob_name}")
 
 def upload_content_to_s3(content):
+    from dotenv import load_dotenv
+    load_dotenv()  # Load environment variables from .env file
+    
     import os
     import boto3
 
