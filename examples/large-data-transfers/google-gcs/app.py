@@ -1,12 +1,17 @@
-"""
-    This file contains utility functions for common pre/post-processing required to use Banana
-    You can copy any of these functions directly & standalone. Assuming you've setup your environment correctly, they should work
-    See https://docs.banana.dev/banana-docs/core-concepts/potassium-your-models-server/configuring-potassium for more details on how to use these functions
-"""
-def download_payload_from_gcs(file_name='example.txt'):
-    import os
-    from google.cloud import storage
+from potassium import Potassium, Request, Response
+from transformers import pipeline
+import utils
+import torch
+import os
+import boto3
+import string
+import random
+import os
+from google.cloud import storage
 
+app = Potassium("my_app")
+
+def download_payload_from_gcs(file_name='example.txt'):
     """
         If you need to create application credentials for accessing google cloud storage, read https://developers.google.com/workspace/guides/create-credentials
         tl;dr
@@ -48,40 +53,6 @@ def download_payload_from_gcs(file_name='example.txt'):
 
     return payload
 
-def download_payload_from_s3(file_name='example.txt'):
-    # This assumes you've setup an AWS S3 bucket and have the credentials stored in the same directory as this code in a .env file
-    # required contents of .env file:
-    # AWS_ACCESS_KEY_ID=...
-    # AWS_SECRET_ACCESS_KEY=...
-    # AWS_REGION=...
-
-    from dotenv import load_dotenv
-    load_dotenv()  # Load environment variables from .env file
-    import os
-    import boto3
-
-    # Set your AWS credentials as environment variables
-    aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-
-    bucket_name = 'model-payloads'
-    folder_name = 'inputs'  # Folder within the bucket
-
-    # Initialize the S3 client
-    s3 = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
-
-    # print all folders in model-payloads bucket
-    response = s3.list_objects_v2(Bucket=bucket_name, Prefix=folder_name)
-
-    # Construct the source key within the bucket
-    source_key = os.path.join(folder_name, file_name)
-
-    # Download the content from the specified S3 location
-    response = s3.get_object(Bucket=bucket_name, Key=source_key)
-    payload = response['Body'].read().decode('utf-8')
-
-    return payload
-
 def upload_payload_to_gcs(content):
     """
         If you need to create application credentials for accessing google cloud storage, read https://developers.google.com/workspace/guides/create-credentials
@@ -93,9 +64,6 @@ def upload_payload_to_gcs(content):
         Generate a new key for the service account in JSON format.
         Save the downloaded JSON key file to a secure location on your system
     """
-
-    import os
-    from google.cloud import storage
     import string
     import random
 
@@ -119,36 +87,36 @@ def upload_payload_to_gcs(content):
     output_path = bucket_name + "/ " + destination_key
     return output_path
 
-def upload_payload_to_s3(payload):
-    # This assumes you've setup an AWS S3 bucket and have the credentials stored in the same directory as this code in a .env file
-    # required contents of .env file:
-    # AWS_ACCESS_KEY_ID=...
-    # AWS_SECRET_ACCESS_KEY=...
-    # AWS_REGION=...
+# @app.init runs at startup, and loads models into the app's context
+@app.init
+def init():
+    device = 0 if torch.cuda.is_available() else -1
+    model = pipeline('fill-mask', model='bert-base-uncased', device=device)
+   
+    context = {
+        "model": model
+    }
 
-    from dotenv import load_dotenv
-    load_dotenv()  # Load environment variables from .env file
-    
-    import os
-    import boto3
-    import string
-    import random
+    return context
 
-    # Set your AWS credentials as environment variables
-    aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    bucket_name = 'model-payloads'
-    folder_name = 'outputs'  # Folder within the bucket
+# @app.handler runs for every call
+@app.handler("/")
+def handler(context: dict, request: Request) -> Response:
+    payload_file = request.json.get("payload_file")
+    model = context.get("model")
 
-    # Initialize the S3 client
-    s3 = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
+    # It's assumed the client uploaded the large payload to some third party storage, and we can fetch it by file name
+    prompt = download_payload_from_gcs(payload_file) # or download_payload_from_s3(...)
+    outputs = model(prompt)
 
-    # Construct the destination key within the bucket
-    rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
-    destination_key = os.path.join(folder_name, "output_" + rand_suffix + ".txt")
+    # If the output is large as well, we'll upload the result to third-party storage, the client can then download it
+    path = upload_payload_to_gcs(outputs[0]['sequence']) # or some other 3rd party storage e.g., upload_payload_to_s3(...)
+    print(f"Output uploaded to: {path}")
 
-    # Upload the payload to the specified S3 location
-    s3.put_object(Body=payload, Bucket=bucket_name, Key=destination_key)
+    return Response(
+        json = {"output_path": path}, 
+        status=200
+    )
 
-    output_path = bucket_name + "/" + destination_key
-    return output_path
+if __name__ == "__main__":
+    app.serve()
