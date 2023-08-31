@@ -1,5 +1,5 @@
-# My Potassium App
-This is a Potassium HTTP server, created with `banana init` CLI
+# Potassium Config Examples
+These are examples of how to configure potassium to run on banana, as referred to in [our official documentation ](https://docs.banana.dev/banana-docs/core-concepts/potassium-your-models-server/configuring-potassium)
 
 ### Testing
 Start a local dev server with `banana dev`
