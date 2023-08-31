@@ -1,4 +1,7 @@
-# My Potassium App
+# Large Payload Transfers Using Google GCS
+
+See [official documentation ](https://docs.banana.dev/banana-docs/core-concepts/potassium-your-models-server/configuring-potassium)for more details
+
 This is a Potassium HTTP server, created with `banana init` CLI
 
 ### Testing
